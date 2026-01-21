@@ -1,0 +1,8 @@
+{
+  "Name": "HyFine",
+  "Group": "me.temxs27",
+  "Version": "1.0.0",
+  "Main": "me.temxs27.hyfine.HyFine",
+  "Description": "Server-side performance optimizer",
+  "IncludeAssetPack": false
+}
