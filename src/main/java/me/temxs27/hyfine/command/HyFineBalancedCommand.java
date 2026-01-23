@@ -8,14 +8,25 @@ import com.hypixel.hytale.server.core.command.system.basecommands.AbstractPlayer
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import com.hypixel.hytale.server.core.util.EventTitleUtil;
+import com.hypixel.hytale.server.core.util.EventTitleUtil; 
 import me.temxs27.hyfine.core.OptimizationManager;
 import me.temxs27.hyfine.preset.OptimizationPreset;
 
 import javax.annotation.Nonnull;
 
+/**
+ * Command to activate the BALANCED optimization preset.
+ * Sends a title notification to the player confirming the change.
+ */
 public class HyFineBalancedCommand extends AbstractPlayerCommand {
 
+    /**
+     * Constructs the command with its name, description, and confirmation requirement.
+     *
+     * @param name The name of the command (e.g., "hyfinebalanced").
+     * @param description A brief description of what the command does.
+     * @param requiresConfirmation Whether the command requires confirmation before execution.
+     */
     public HyFineBalancedCommand(@Nonnull String name, @Nonnull String description, boolean requiresConfirmation) {
         super(name, description, requiresConfirmation);
     }
@@ -25,14 +36,20 @@ public class HyFineBalancedCommand extends AbstractPlayerCommand {
                            @Nonnull Store<EntityStore> store,
                            @Nonnull Ref<EntityStore> ref,
                            @Nonnull PlayerRef playerRef,
-                           @Nonnull World world)
-    {
+                           @Nonnull World world) {
+        // Apply the BALANCED optimization preset
         OptimizationManager.setPreset(OptimizationPreset.BALANCED);
+
+        // Show a title notification to the player using the accessible EventTitleUtil
+        // Note: The 'true' parameter likely indicates if the title should be centered.
         EventTitleUtil.showEventTitleToPlayer(
                 playerRef,
-                Message.raw("BALANCED Mode Activated"),
-                Message.raw("Preset CHANGED"),
-                true
+                Message.raw("BALANCED Mode Activated"), // Title message
+                Message.raw("Preset CHANGED"),          // Subtitle message
+                true                                  // Centered flag
         );
+
+        // Optional: Send a chat message as well for confirmation
+        playerRef.sendMessage(Message.raw("HyFine: BALANCED preset activated."));
     }
 }
