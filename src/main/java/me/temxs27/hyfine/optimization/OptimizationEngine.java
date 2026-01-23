@@ -4,7 +4,7 @@ import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.event.EventBus; 
 import com.hypixel.hytale.server.core.universe.world.events.ecs.ChunkSaveEvent;
 import com.hypixel.hytale.server.core.universe.world.events.ecs.ChunkUnloadEvent;
-// Import necesario para WorldConfig
+
 import com.hypixel.hytale.server.core.universe.world.WorldConfig;
 
 import com.hypixel.hytale.component.system.CancellableEcsEvent; 
@@ -194,7 +194,7 @@ public class OptimizationEngine {
             }
 
             // --- NEW: Apply WorldConfig Optimizations ---
-            // Try to modify WorldConfig directly (based on PrefabEditSessionManager)
+            // Try to modify WorldConfig directly (based on PrefabEditSessionManager and SpawnCommand findings)
             try {
                 WorldConfig config = world.getWorldConfig(); // Get the current config
                 if (config != null) {
@@ -203,7 +203,8 @@ public class OptimizationEngine {
                     config.setSpawningNPC(shouldSpawnNPCs(preset, data.tps));
                     config.setIsAllNPCFrozen(shouldFreezeNPCs(preset, data.tps));
                     config.setCanUnloadChunks(allowUnload);
-                    // Note: We don't call markChanged() here as it might be handled internally by the server.
+                    // IMPORTANT: Call markChanged() to notify the server that the config has changed (based on SpawnCommand.java)
+                    config.markChanged(); // <-- AÑADIDA ESTA LINEA CRUCIAL
                     System.out.println("[HyFine] Applied WorldConfig optimizations for world: " + world.getName());
                 }
             } catch (Exception e) {
