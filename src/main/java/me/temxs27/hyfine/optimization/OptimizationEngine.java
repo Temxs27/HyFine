@@ -11,6 +11,13 @@ import com.hypixel.hytale.component.system.CancellableEcsEvent;
 import com.hypixel.hytale.component.system.ICancellableEcsEvent; 
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
+import com.hypixel.hytale.server.core.entity.entities.Player; // Import for Player component
+import com.hypixel.hytale.server.core.universe.PlayerRef; // Import for PlayerRef component
+import com.hypixel.hytale.server.core.modules.entity.tracker.EntityTrackerSystems; // Import for EntityViewer
+import com.hypixel.hytale.protocol.packets.setup.ViewRadius; // Import for ViewRadius packet
+import com.hypixel.hytale.component.ComponentType; // Import for ComponentType
+import com.hypixel.hytale.server.core.universe.world.storage.EntityStore; // Import for EntityStore
+
 import me.temxs27.hyfine.HyFine;
 import me.temxs27.hyfine.core.OptimizationManager;
 import me.temxs27.hyfine.core.PerformanceMonitor;
@@ -19,8 +26,8 @@ import me.temxs27.hyfine.preset.OptimizationPreset;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level; // Import necesario para Level
-import java.util.logging.Logger; // Import necesario para Logger
+import java.util.logging.Level; // Import necessary for Level
+import java.util.logging.Logger; // Import necessary for Logger
 
 /**
  * The core optimization engine of the HyFine plugin.
@@ -56,18 +63,21 @@ public class OptimizationEngine {
     private static final int LOW_TARGET_TPS = 30; // Default TPS
     private static final boolean LOW_ALLOW_UNLOAD = true; // Allow chunk unloading
     private static final boolean LOW_ALLOW_SAVE = true;   // Allow chunk saving
+    private static final int LOW_CLIENT_VIEW_RADIUS = 5; // Reduced slightly
 
     // BALANCED preset settings (default server behavior assumed)
     private static final int BALANCED_ITEM_DESPAWN_TICKS = 3600; // 3 minutes
     private static final int BALANCED_TARGET_TPS = 30; // Default TPS
     private static final boolean BALANCED_ALLOW_UNLOAD = true;
     private static final boolean BALANCED_ALLOW_SAVE = true;
+    private static final int BALANCED_CLIENT_VIEW_RADIUS = 4; // Reduced slightly
 
     // ULTRA preset settings
     private static final int ULTRA_ITEM_DESPAWN_TICKS = 1200; // 1 minute
     private static final int ULTRA_TARGET_TPS = 20; // Lower TPS to reduce load
     private static final boolean ULTRA_ALLOW_UNLOAD = false; // Prevent chunk unloading (keep memory high, reduce I/O)
     private static final boolean ULTRA_ALLOW_SAVE = false;   // Prevent chunk saving (keep memory high, reduce I/O)
+    private static final int ULTRA_CLIENT_VIEW_RADIUS = 3; // Reduced further, but not extremely
 
     // --- State for Event-Based Policies ---
     // Map to store the current policy for each world
@@ -148,6 +158,7 @@ public class OptimizationEngine {
         int targetTps;
         boolean allowUnload;
         boolean allowSave;
+        int clientViewRadius; // Added for view radius optimization
 
         switch (preset) {
             case LOW:
@@ -155,6 +166,7 @@ public class OptimizationEngine {
                 targetTps = LOW_TARGET_TPS;
                 allowUnload = LOW_ALLOW_UNLOAD;
                 allowSave = LOW_ALLOW_SAVE;
+                clientViewRadius = LOW_CLIENT_VIEW_RADIUS; // Assign value based on preset
                 aggressiveMode = false;
                 break;
             case BALANCED:
@@ -162,6 +174,7 @@ public class OptimizationEngine {
                 targetTps = BALANCED_TARGET_TPS;
                 allowUnload = BALANCED_ALLOW_UNLOAD;
                 allowSave = BALANCED_ALLOW_SAVE;
+                clientViewRadius = BALANCED_CLIENT_VIEW_RADIUS; // Assign value based on preset
                 aggressiveMode = false;
                 break;
             case ULTRA:
@@ -169,6 +182,7 @@ public class OptimizationEngine {
                 targetTps = ULTRA_TARGET_TPS; // Lower TPS for ultra preset
                 allowUnload = ULTRA_ALLOW_UNLOAD; // Prevent unloading
                 allowSave = ULTRA_ALLOW_SAVE;     // Prevent saving
+                clientViewRadius = ULTRA_CLIENT_VIEW_RADIUS; // Assign value based on preset
                 aggressiveMode = true;
                 break;
             default:
@@ -177,6 +191,7 @@ public class OptimizationEngine {
                 targetTps = BALANCED_TARGET_TPS;
                 allowUnload = BALANCED_ALLOW_UNLOAD;
                 allowSave = BALANCED_ALLOW_SAVE;
+                clientViewRadius = BALANCED_CLIENT_VIEW_RADIUS; // Assign value based on preset
                 aggressiveMode = false;
                 break;
         }
@@ -265,6 +280,75 @@ public class OptimizationEngine {
                 LOGGER.severe("[HyFine] Failed to modify WorldConfig for world '" + worldName + "': " + e.getMessage());
                 e.printStackTrace();
             }
+
+            // --- NEW: Apply Player View Radius Optimizations ---
+            // Iterate through players in the world and adjust their view radius
+            // This needs to be done on the world's ECS thread
+            try {
+                world.execute(() -> {
+                    try {
+                        com.hypixel.hytale.component.Store<EntityStore> entityStore = world.getEntityStore().getStore(); // Get the Store<EntityStore>
+                        ComponentType<EntityStore, PlayerRef> playerRefType = PlayerRef.getComponentType(); // Get the ComponentType
+                        ComponentType<EntityStore, Player> playerType = Player.getComponentType(); // Get the ComponentType
+                        ComponentType<EntityStore, EntityTrackerSystems.EntityViewer> viewerType = EntityTrackerSystems.EntityViewer.getComponentType(); // Get the ComponentType
+
+                        // Use forEachEntityParallel with ComponentType - this is the efficient way to iterate entities of a specific type
+                        entityStore.forEachEntityParallel(playerRefType, (index, archetypeChunk, commandBuffer) -> {
+                            // Get PlayerRef component from the ArchetypeChunk at the given index
+                            PlayerRef playerRefComponent = archetypeChunk.getComponent(index, playerRefType);
+                            if (playerRefComponent != null) {
+                                // Get the actual Player entity reference from the PlayerRef component
+                                com.hypixel.hytale.component.Ref<EntityStore> actualPlayerEntityRef = playerRefComponent.getReference();
+                                if (actualPlayerEntityRef != null && actualPlayerEntityRef.isValid()) {
+                                    // Get the Player component from the Player entity
+                                    // Use the 'entityStore' variable from the outer scope of forEachEntityParallel
+                                    Player playerComponent = entityStore.getComponent(actualPlayerEntityRef, playerType);
+                                    if (playerComponent != null) {
+                                        // Get the EntityViewer component
+                                        // Use the 'entityStore' variable from the outer scope of forEachEntityParallel
+                                        EntityTrackerSystems.EntityViewer entityViewerComponent = entityStore.getComponent(actualPlayerEntityRef, viewerType);
+                                        if (entityViewerComponent != null) {
+                                            int currentRadiusChunks = playerComponent.getClientViewRadius();
+                                            int targetRadiusBlocks = clientViewRadius * 32; // Convert chunks to blocks as per command logic
+
+                                            if (currentRadiusChunks != clientViewRadius) {
+                                                // Apply the changes directly on the ECS thread (within the parallel execution context)
+                                                playerComponent.setClientViewRadius(clientViewRadius);
+                                                entityViewerComponent.viewRadiusBlocks = targetRadiusBlocks;
+
+                                                // Send the ViewRadius packet to the client using the PlayerRef
+                                                ViewRadius viewRadiusPacket = new ViewRadius(targetRadiusBlocks);
+                                                playerRefComponent.getPacketHandler().writeNoCache(viewRadiusPacket);
+
+                                                LOGGER.info("[HyFine] Changed client view radius for player in world '" + worldName + "' to " + clientViewRadius + " chunks (" + targetRadiusBlocks + " blocks)");
+                                            }
+                                        } else {
+                                            LOGGER.warning("[HyFine] EntityViewer component not found for player entity ref " + actualPlayerEntityRef.getIndex() + " in world '" + worldName + "'");
+                                        }
+                                    } else {
+                                        LOGGER.warning("[HyFine] Player component not found for player entity ref " + actualPlayerEntityRef.getIndex() + " in world '" + worldName + "'");
+                                    }
+                                } else {
+                                    LOGGER.fine("[HyFine] Player entity ref is null or invalid for PlayerRef entity ref at index " + index + " in world '" + worldName + "'");
+                                }
+                            } else {
+                                // This shouldn't happen if the query is correct, but just in case
+                                LOGGER.warning("[HyFine] PlayerRef component not found at index " + index + " in archetype chunk for world '" + worldName + "'");
+                            }
+                        });
+
+                    } catch (Exception e) {
+                         LOGGER.severe("[HyFine] Error applying player view radius optimization on ECS thread for world '" + worldName + "': " + e.getMessage());
+                         e.printStackTrace();
+                    }
+                });
+                LOGGER.info("[HyFine] Queued player view radius optimization for world '" + worldName + "' via world.execute().");
+            } catch (Exception e) {
+                 System.err.println("[HyFine] Failed to queue player view radius optimization for world '" + worldName + "': " + e.getMessage());
+                 LOGGER.severe("[HyFine] Failed to queue player view radius optimization for world '" + worldName + "' via world.execute(): " + e.getMessage());
+                 e.printStackTrace();
+            }
+
 
             // --- 2. Apply Emergency/Moderate TPS-based adjustments ---
             // Example: If TPS is critically low, force a lower TPS temporarily, regardless of preset (except maybe ULTRA which is already low)
@@ -486,10 +570,10 @@ public class OptimizationEngine {
         // Logic based on preset and TPS
         boolean result;
         if (preset == OptimizationPreset.ULTRA) {
-            result = true;
+            result = false;       //disable for cheating XD
             LOGGER.fine("[shouldFreezeNPCs] Returning true: preset is ULTRA.");
         } else if (currentTps < 10) {
-            result = true;
+            result = false;
             LOGGER.fine("[shouldFreezeNPCs] Returning true: current TPS (" + currentTps + ") is below emergency threshold (10).");
         } else {
             result = false;
