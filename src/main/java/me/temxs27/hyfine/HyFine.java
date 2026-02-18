@@ -7,6 +7,9 @@ import me.temxs27.hyfine.command.HyFineCommand;
 import me.temxs27.hyfine.command.HyFineLowCommand;
 import me.temxs27.hyfine.command.HyFineStatsCommand;
 import me.temxs27.hyfine.command.HyFineUltraCommand;
+import me.temxs27.hyfine.command.HyLogCommand;
+import me.temxs27.hyfine.command.HyViewOffCommand;
+import me.temxs27.hyfine.core.OptimizationManager;
 import me.temxs27.hyfine.core.PerformanceMonitor;
 import me.temxs27.hyfine.optimization.OptimizationEngine;
 
@@ -35,7 +38,9 @@ public class HyFine extends JavaPlugin {
     public HyFine(@Nonnull JavaPluginInit init) {
         super(init);
         instance = this;
-        System.out.println("[HyFine] Plugin initializing...");
+        if (OptimizationManager.isLoggingEnabled()) {
+            System.out.println("[HyFine] Plugin initializing...");
+        }
     }
 
     /**
@@ -75,9 +80,19 @@ public class HyFine extends JavaPlugin {
                 new HyFineStatsCommand("hyfstats", "Show performance stats", false)
         );
 
-        // Log successful startup
-        System.out.println("[HyFine] Optimization engine started!");
-        System.out.println("[HyFine] Core systems initialized!");
+        this.getCommandRegistry().registerCommand(
+                new HyLogCommand("hylog", "Toggle HyFine logging", false)
+        );
+
+        this.getCommandRegistry().registerCommand(
+                new HyViewOffCommand("hyvoff", "Toggle view radius optimization", false)
+        );
+
+        // Log successful startup (only if logging is enabled)
+        if (OptimizationManager.isLoggingEnabled()) {
+            System.out.println("[HyFine] Optimization engine started!");
+            System.out.println("[HyFine] Core systems initialized!");
+        }
     }
 
     /**

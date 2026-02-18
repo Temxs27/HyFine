@@ -1,8 +1,9 @@
 {
   "Name": "HyFine",
   "Group": "me.temxs27 & JavierC",
-  "Version": "1.1.1",
+  "Version": "2.0.2",
   "Main": "me.temxs27.hyfine.HyFine",
+  "ServerVersion": "2026.02.17-255364b8e",
   "Description": "Server-side performance optimizer",
   "Authors": [
     {

@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "me.temxs27"
-version = "1.1.1"
+version = "2.0.2"
 
 repositories {
     mavenCentral()
@@ -23,7 +23,7 @@ tasks.test {
 tasks.jar {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     archiveBaseName.set("HyFine")
-    archiveVersion.set("1.1.1")
+    archiveVersion.set("2.0.2")
 
     from("src/main/resources") {
         include("**/*")
@@ -32,7 +32,7 @@ tasks.jar {
     manifest {
         attributes(
             "Implementation-Title" to "HyFine",
-            "Implementation-Version" to "1.1.1"
+            "Implementation-Version" to "2.0.2"
         )
     }
 }

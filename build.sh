@@ -1,0 +1,1 @@
+JAVA_HOME=/usr/lib/jvm/openjdk25 ./gradlew clean build
